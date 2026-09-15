@@ -68,6 +68,7 @@ def run_agent(pnr: str, last_name: str, message: str) -> str:            # ✏�
     answer = ""
     turns = 1
     while response.stop_reason == "tool_use" and turns < MAX_TOOL_CALLS:
+        # [Room 5] 1.2: was text_of(response) → response.content (must include tool_use + thinking blocks, not just text)
         messages.append({"role": "assistant", "content": response.content})
         messages.append({"role": "user", "content": tool_results(response)})
         answer = text_of(response)
@@ -77,6 +78,7 @@ def run_agent(pnr: str, last_name: str, message: str) -> str:            # ✏�
         )
         turns += 1
 
+    # [Room 5] 1.2: added — was missing, causing return "" (final response text only available after loop exits)
     answer = text_of(response)
     return answer
 
@@ -120,11 +122,13 @@ def build_tools() -> List[Dict[str, Any]]:                 # ✏️ Build 1, ste
                 "type": "object",
                 "properties": {
                     "flight_no": {"type": "string"},
+                    # [Room 5] 1.3: was "MM/DD/YYYY" → "YYYY-MM-DD" (backend rejects non-ISO format)
                     "date": {"type": "string", "description": "YYYY-MM-DD"},
                 },
                 "required": ["flight_no", "date"],
             },
         },
+        # [Room 5] 1.3: description was "search" → full routing description (one word gave Claude no routing signal)
         {
             "name": "search_alternatives",
             "description": (
