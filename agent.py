@@ -12,8 +12,7 @@ from __future__ import annotations
 import json, pathlib
 from typing import Any, Dict, List
 from support import (MODEL, SYSTEM_PROMPT, call_local, execute_tool, mcp_client,
-                     new_session, next_available_day, record_tool_result,
-                     runtime_preamble)
+                     new_session, record_tool_result, runtime_preamble)
 
 _TRANSCRIPTS = pathlib.Path(__file__).parent / "data" / "americas" / "transcripts_sample.jsonl"
 
@@ -149,9 +148,11 @@ def run_agent(pnr: str, last_name: str, message: str) -> str:            # ✏�
 def tool_list() -> List[Dict[str, Any]]:                   # ✏️ Build 2, step 2.2
     """Given. Exactly what Claude is offered on every turn; run.py --show-tools
     prints this list."""
-    # [Room 5] 2.2: added mcp_client.tools() so MCP-served tools (next_available_day,
-    # fare_rules) are included in what Claude sees on every turn.
-    return build_tools() + EXTRA_TOOLS + mcp_client.tools()
+    # [Room 5] 2.2: added mcp_client.tools() so MCP-served tools are included.
+    # fare_rules excluded: routing trigger requires a customer dispute, which never
+    # occurs in probe conversations. Re-add by adding "fare_rules" to this set.
+    _mcp_allowed = {"next_available_day"}
+    return build_tools() + EXTRA_TOOLS + [t for t in mcp_client.tools() if t["name"] in _mcp_allowed]
 
 
 # ──────────────────────────────────────────────────────────────────────────────
