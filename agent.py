@@ -9,10 +9,37 @@ Where you edit:   grep -n '✏' agent.py   (six marks, one per place)
 Steps and gates:  https://anthropicpartnerbasecamp.bts.com/
 """
 from __future__ import annotations
+import json, pathlib
 from typing import Any, Dict, List
 from support import (MODEL, SYSTEM_PROMPT, call_local, execute_tool, mcp_client,
                      new_session, next_available_day, record_tool_result,
                      runtime_preamble)
+
+_TRANSCRIPTS = pathlib.Path(__file__).parent / "data" / "americas" / "transcripts_sample.jsonl"
+
+def reopen_stats(intent_label: str = "", cause_code: str = "", fare_family: str = "") -> dict:
+    """Return the historical 72-hour reopen rate for transcripts matching this shape."""
+    total = reopened = 0
+    with _TRANSCRIPTS.open(encoding="utf-8") as fh:
+        for line in fh:
+            line = line.strip()
+            if not line:
+                continue
+            rec = json.loads(line)
+            if intent_label and rec.get("intent_label") != intent_label:
+                continue
+            if cause_code and rec.get("disruption", {}).get("cause_code") != cause_code:
+                continue
+            if fare_family and rec.get("fare_family") != fare_family:
+                continue
+            total += 1
+            if rec.get("reopened_within_72h"):
+                reopened += 1
+    if total == 0:
+        return {"total": 0, "reopened": 0, "reopen_rate": None,
+                "note": "No transcripts matched this shape."}
+    return {"total": total, "reopened": reopened,
+            "reopen_rate": round(reopened / total, 3)}
 
 MAX_TOOL_CALLS = 8  # Larkspur's own build capped the loop here; then a human takes over.
 
@@ -43,7 +70,29 @@ EXTRA_TOOLS: List[Dict[str, Any]] = [   # ✏️ Build 2, step 2.1: schemas for 
             },
             "required": ["origin", "dest", "date", "cabin"],
         },
-    }
+    },
+    {
+        "name": "reopen_stats",
+        "description": (
+            "Look up the historical 72-hour reopen rate for disruption contacts that "
+            "match this case's shape: intent, cause code, and fare family. Call this "
+            "when the policy or tone of a resolution might leave unresolved questions "
+            "— e.g. to flag that refund contacts on Basic fares reopen at a high rate "
+            "and the customer should receive a reference number. Returns total matching "
+            "transcripts, how many reopened within 72 hours, and the reopen rate."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "intent_label": {"type": "string",
+                    "description": "e.g. rebook_after_cancellation, compensation_hotel_request"},
+                "cause_code": {"type": "string", "enum": ["WX", "ATC", "MX", "CREW", "SEC"]},
+                "fare_family": {"type": "string",
+                    "description": "Basic, Main, or Main Plus — from the booking"},
+            },
+            "required": [],
+        },
+    },
 ]
 
 # [Room 5] LOCAL_TOOLS: maps tool name → Python function. tool_results() checks this dict
@@ -51,6 +100,7 @@ EXTRA_TOOLS: List[Dict[str, Any]] = [   # ✏️ Build 2, step 2.1: schemas for 
 # next_available_day returns an error and the gate never sees a successful invocation.
 LOCAL_TOOLS: Dict[str, Any] = {         # ✏️ Build 2, step 2.1: the functions behind them
     "next_available_day": next_available_day,  # imported from support at line 14
+    "reopen_stats": reopen_stats,
 }
 
 
