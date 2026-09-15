@@ -13,8 +13,7 @@ from __future__ import annotations
 import json, pathlib
 from typing import Any, Dict, List
 from support import (MODEL, SYSTEM_PROMPT, call_local, execute_tool, mcp_client,
-                     new_session, next_available_day, record_tool_result,
-                     runtime_preamble)
+                     new_session, record_tool_result, runtime_preamble)
 
 # [Room 5] 2.1: added reopen_stats — was not present; reads data/americas/transcripts_sample.jsonl
 #               to return 72-hour reopen rate for contacts matching a given shape
@@ -50,6 +49,9 @@ TONE_ADDENDUM = ""                       # ✏️ Build 4, step 4.1, intelligenc
 # [Room 5] EXTRA_TOOLS: schemas Claude sees on every call. The description is the routing
 # signal — it's the only thing that steers Claude toward this tool vs. search_alternatives.
 # The floor is 40 chars; the gate checks this before it runs any conversation.
+# [Room 5] next_available_day removed from EXTRA_TOOLS at step 2.2: it now lives in
+# mcp_server.py and is discovered at runtime via tool_list(). reopen_stats stays here
+# because it is not in the MCP server.
 EXTRA_TOOLS: List[Dict[str, Any]] = [   # ✏️ Build 2, step 2.1: schemas for the tools you add
     # [Room 5] 2.2: next_available_day schema removed from EXTRA_TOOLS → now served by MCP (duplicate routing otherwise)
     # [Room 5] 2.2: fare_rules is also served by MCP — schema injected by mcp_client.tools() in tool_list(); no local copy needed
@@ -174,8 +176,11 @@ def run_agent(pnr: str, last_name: str, message: str) -> str:            # ✏�
 def tool_list() -> List[Dict[str, Any]]:                   # ✏️ Build 2, step 2.2
     """Given. Exactly what Claude is offered on every turn; run.py --show-tools
     prints this list."""
-    # [Room 5] 2.2: was return build_tools() + EXTRA_TOOLS → added mcp_client.tools() so MCP schemas are offered to Claude each turn
-    return build_tools() + EXTRA_TOOLS + mcp_client.tools()
+    # [Room 5] 2.2: added mcp_client.tools() so MCP-served tools are included.
+    # fare_rules excluded: routing trigger requires a customer dispute, which never
+    # occurs in probe conversations. Re-add by adding "fare_rules" to this set.
+    _mcp_allowed = {"next_available_day"}
+    return build_tools() + EXTRA_TOOLS + [t for t in mcp_client.tools() if t["name"] in _mcp_allowed]
 
 
 # ──────────────────────────────────────────────────────────────────────────────
