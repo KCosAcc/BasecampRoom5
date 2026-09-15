@@ -17,8 +17,41 @@ from support import (MODEL, SYSTEM_PROMPT, call_local, execute_tool, mcp_client,
 MAX_TOOL_CALLS = 8  # Larkspur's own build capped the loop here; then a human takes over.
 
 TONE_ADDENDUM = ""                       # ✏️ Build 4, step 4.1, intelligence lane
-EXTRA_TOOLS: List[Dict[str, Any]] = []   # ✏️ Build 2, step 2.1: schemas for the tools you add
-LOCAL_TOOLS: Dict[str, Any] = {}         # ✏️ Build 2, step 2.1: the functions behind them
+# [Room 5] EXTRA_TOOLS: schemas Claude sees on every call. The description is the routing
+# signal — it's the only thing that steers Claude toward this tool vs. search_alternatives.
+# The floor is 40 chars; the gate checks this before it runs any conversation.
+EXTRA_TOOLS: List[Dict[str, Any]] = [   # ✏️ Build 2, step 2.1: schemas for the tools you add
+    {
+        "name": "next_available_day",
+        "description": (
+            "Checks the earliest available alternative flight date when the customer "
+            "is prioritising speed or urgency. Call this after lookup_booking has "
+            "returned the segment details (origin, dest, date, cabin). Returns the "
+            "soonest date with a seat, or null if none found."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                # [Room 5] origin/dest/date/cabin come from the segment returned by lookup_booking,
+                # not from the customer — Claude should read them from the booking, not ask.
+                "origin": {"type": "string"},
+                "dest": {"type": "string"},
+                "date": {"type": "string", "description": "YYYY-MM-DD"},
+                "cabin": {"type": "string"},
+                # [Room 5] optional: defaults to 1 in the backend; only matters for group bookings
+                "pax_count": {"type": "integer"},
+            },
+            "required": ["origin", "dest", "date", "cabin"],
+        },
+    }
+]
+
+# [Room 5] LOCAL_TOOLS: maps tool name → Python function. tool_results() checks this dict
+# before falling through to support/tools.py. Without this entry, every call to
+# next_available_day returns an error and the gate never sees a successful invocation.
+LOCAL_TOOLS: Dict[str, Any] = {         # ✏️ Build 2, step 2.1: the functions behind them
+    "next_available_day": next_available_day,  # imported from support at line 14
+}
 
 
 def text_of(response) -> str:
