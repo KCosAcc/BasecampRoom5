@@ -9,12 +9,15 @@ Where you edit:   grep -n '✏' agent.py   (six marks, one per place)
 Steps and gates:  https://anthropicpartnerbasecamp.bts.com/
 """
 from __future__ import annotations
+# [Room 5] 2.1: added json, pathlib — were not imported; required by reopen_stats to read transcripts_sample.jsonl
 import json, pathlib
 from typing import Any, Dict, List
 from support import (MODEL, SYSTEM_PROMPT, call_local, execute_tool, mcp_client,
                      new_session, next_available_day, record_tool_result,
                      runtime_preamble)
 
+# [Room 5] 2.1: added reopen_stats — was not present; reads data/americas/transcripts_sample.jsonl
+#               to return 72-hour reopen rate for contacts matching a given shape
 _TRANSCRIPTS = pathlib.Path(__file__).parent / "data" / "americas" / "transcripts_sample.jsonl"
 
 def reopen_stats(intent_label: str = "", cause_code: str = "", fare_family: str = "") -> dict:
@@ -48,29 +51,29 @@ TONE_ADDENDUM = ""                       # ✏️ Build 4, step 4.1, intelligenc
 # signal — it's the only thing that steers Claude toward this tool vs. search_alternatives.
 # The floor is 40 chars; the gate checks this before it runs any conversation.
 EXTRA_TOOLS: List[Dict[str, Any]] = [   # ✏️ Build 2, step 2.1: schemas for the tools you add
-    {
-        "name": "next_available_day",
-        "description": (
-            "Checks the earliest available alternative flight date when the customer "
-            "is prioritising speed or urgency. Call this after lookup_booking has "
-            "returned the segment details (origin, dest, date, cabin). Returns the "
-            "soonest date with a seat, or null if none found."
-        ),
-        "input_schema": {
-            "type": "object",
-            "properties": {
-                # [Room 5] origin/dest/date/cabin come from the segment returned by lookup_booking,
-                # not from the customer — Claude should read them from the booking, not ask.
-                "origin": {"type": "string"},
-                "dest": {"type": "string"},
-                "date": {"type": "string", "description": "YYYY-MM-DD"},
-                "cabin": {"type": "string"},
-                # [Room 5] optional: defaults to 1 in the backend; only matters for group bookings
-                "pax_count": {"type": "integer"},
-            },
-            "required": ["origin", "dest", "date", "cabin"],
-        },
-    },
+    # [Room 5] 2.2: next_available_day schema removed from EXTRA_TOOLS → now served by MCP (duplicate routing otherwise)
+    # [Room 5] 2.2: fare_rules is also served by MCP — schema injected by mcp_client.tools() in tool_list(); no local copy needed
+    # {
+    #     "name": "next_available_day",
+    #     "description": (
+    #         "Checks the earliest available alternative flight date when the customer "
+    #         "is prioritising speed or urgency. Call this after lookup_booking has "
+    #         "returned the segment details (origin, dest, date, cabin). Returns the "
+    #         "soonest date with a seat, or null if none found."
+    #     ),
+    #     "input_schema": {
+    #         "type": "object",
+    #         "properties": {
+    #             "origin": {"type": "string"},
+    #             "dest": {"type": "string"},
+    #             "date": {"type": "string", "description": "YYYY-MM-DD"},
+    #             "cabin": {"type": "string"},
+    #             "pax_count": {"type": "integer"},
+    #         },
+    #         "required": ["origin", "dest", "date", "cabin"],
+    #     },
+    # },
+    # [Room 5] 2.1: added reopen_stats schema to EXTRA_TOOLS — was not present; routes Claude to the local function
     {
         "name": "reopen_stats",
         "description": (
@@ -99,7 +102,9 @@ EXTRA_TOOLS: List[Dict[str, Any]] = [   # ✏️ Build 2, step 2.1: schemas for 
 # before falling through to support/tools.py. Without this entry, every call to
 # next_available_day returns an error and the gate never sees a successful invocation.
 LOCAL_TOOLS: Dict[str, Any] = {         # ✏️ Build 2, step 2.1: the functions behind them
-    "next_available_day": next_available_day,  # imported from support at line 14
+    # [Room 5] 2.2: next_available_day removed from LOCAL_TOOLS → was "next_available_day": next_available_day; now dispatched via mcp_client
+    # "next_available_day": next_available_day,
+    # [Room 5] 2.1: added reopen_stats — was not present; needed so tool_results() dispatches calls to the local function
     "reopen_stats": reopen_stats,
 }
 
@@ -169,7 +174,8 @@ def run_agent(pnr: str, last_name: str, message: str) -> str:            # ✏�
 def tool_list() -> List[Dict[str, Any]]:                   # ✏️ Build 2, step 2.2
     """Given. Exactly what Claude is offered on every turn; run.py --show-tools
     prints this list."""
-    return build_tools() + EXTRA_TOOLS
+    # [Room 5] 2.2: was return build_tools() + EXTRA_TOOLS → added mcp_client.tools() so MCP schemas are offered to Claude each turn
+    return build_tools() + EXTRA_TOOLS + mcp_client.tools()
 
 
 # ──────────────────────────────────────────────────────────────────────────────
