@@ -47,30 +47,10 @@ TONE_ADDENDUM = ""                       # ✏️ Build 4, step 4.1, intelligenc
 # [Room 5] EXTRA_TOOLS: schemas Claude sees on every call. The description is the routing
 # signal — it's the only thing that steers Claude toward this tool vs. search_alternatives.
 # The floor is 40 chars; the gate checks this before it runs any conversation.
+# [Room 5] next_available_day removed from EXTRA_TOOLS at step 2.2: it now lives in
+# mcp_server.py and is discovered at runtime via tool_list(). reopen_stats stays here
+# because it is not in the MCP server.
 EXTRA_TOOLS: List[Dict[str, Any]] = [   # ✏️ Build 2, step 2.1: schemas for the tools you add
-    {
-        "name": "next_available_day",
-        "description": (
-            "Checks the earliest available alternative flight date when the customer "
-            "is prioritising speed or urgency. Call this after lookup_booking has "
-            "returned the segment details (origin, dest, date, cabin). Returns the "
-            "soonest date with a seat, or null if none found."
-        ),
-        "input_schema": {
-            "type": "object",
-            "properties": {
-                # [Room 5] origin/dest/date/cabin come from the segment returned by lookup_booking,
-                # not from the customer — Claude should read them from the booking, not ask.
-                "origin": {"type": "string"},
-                "dest": {"type": "string"},
-                "date": {"type": "string", "description": "YYYY-MM-DD"},
-                "cabin": {"type": "string"},
-                # [Room 5] optional: defaults to 1 in the backend; only matters for group bookings
-                "pax_count": {"type": "integer"},
-            },
-            "required": ["origin", "dest", "date", "cabin"],
-        },
-    },
     {
         "name": "reopen_stats",
         "description": (
@@ -99,7 +79,7 @@ EXTRA_TOOLS: List[Dict[str, Any]] = [   # ✏️ Build 2, step 2.1: schemas for 
 # before falling through to support/tools.py. Without this entry, every call to
 # next_available_day returns an error and the gate never sees a successful invocation.
 LOCAL_TOOLS: Dict[str, Any] = {         # ✏️ Build 2, step 2.1: the functions behind them
-    "next_available_day": next_available_day,  # imported from support at line 14
+    # [Room 5] next_available_day removed at step 2.2: now served by mcp_server.py
     "reopen_stats": reopen_stats,
 }
 
@@ -169,7 +149,9 @@ def run_agent(pnr: str, last_name: str, message: str) -> str:            # ✏�
 def tool_list() -> List[Dict[str, Any]]:                   # ✏️ Build 2, step 2.2
     """Given. Exactly what Claude is offered on every turn; run.py --show-tools
     prints this list."""
-    return build_tools() + EXTRA_TOOLS
+    # [Room 5] 2.2: added mcp_client.tools() so MCP-served tools (next_available_day,
+    # fare_rules) are included in what Claude sees on every turn.
+    return build_tools() + EXTRA_TOOLS + mcp_client.tools()
 
 
 # ──────────────────────────────────────────────────────────────────────────────
