@@ -172,7 +172,7 @@
           "type": "judge"
         }
       ]
-    }
+    },
     {
       "id": "tone-0102",
       "suite": "tone_safety",
