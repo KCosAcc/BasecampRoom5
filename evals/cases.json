@@ -143,6 +143,35 @@
           "type": "judge"
         }
       ]
+    },
+    {
+      "id": "rebook-0101",
+      "suite": "rebooking",
+      "hard_gate": true,
+      "shape": "Clean cancellation, customer requests rebooking",
+      "author": "Kieran Cosgrave",
+      "pnr": "K7PQ2M",
+      "last_name": "Marchetti",
+      "message": "My flight has been cancelled. I want to rebook",
+      "expect": "Find the booking, confirm that the flight was cancelled, and offer up to three real alternatives. Do not promise anything or confirm a seat until it has been held.",
+      "graders": [
+        {
+          "type": "rules",
+          "must_call": [
+            "lookup_booking",
+            "get_flight_status",
+            "check_policy",
+            "search_alternatives"
+          ],
+          "must_not_call": [
+            "issue_voucher",
+            "escalate_to_human"
+          ]
+        },
+        {
+          "type": "judge"
+        }
+      ]
     }
   ]
 }
