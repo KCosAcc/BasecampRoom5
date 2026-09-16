@@ -45,7 +45,13 @@ def reopen_stats(intent_label: str = "", cause_code: str = "", fare_family: str 
 
 MAX_TOOL_CALLS = 8  # Larkspur's own build capped the loop here; then a human takes over.
 
-TONE_ADDENDUM = ""                       # ✏️ Build 4, step 4.1, intelligence lane
+# [Room 5] [Task 4.1] Intelligence lane: detect abusive messages and legal threats before policy lookup; escalate instead of resolve
+TONE_ADDENDUM = (
+    "Before calling any policy or booking tool, assess the customer's tone. "
+    "If the message contains a legal threat (e.g. 'I will sue', 'my lawyer', 'legal action') "
+    "or abusive language directed at staff, call escalate_to_human immediately with "
+    "reason='legal_threat_or_abusive_language'. Do not offer entitlements or policy information first."
+)                                        # ✏️ Build 4, step 4.1, intelligence lane
 # [Room 5] EXTRA_TOOLS: schemas Claude sees on every call. The description is the routing
 # signal — it's the only thing that steers Claude toward this tool vs. search_alternatives.
 # The floor is 40 chars; the gate checks this before it runs any conversation.
