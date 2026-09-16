@@ -14,7 +14,7 @@ Next: Build 4 — author TONE_ADDENDUM to classify abusive messages and legal th
 
 Still broken: R8KD3F (abusive message + legal threat) resolves as a normal delay case — the agent calls check_policy and offers entitlements rather than escalating. TONE_ADDENDUM is empty.
 
-Lever: cost
+Lever: intelligence
 
 ## Priya asked
 
